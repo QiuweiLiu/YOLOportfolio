@@ -84,18 +84,17 @@ python yolo_optimization/scripts/check_environment.py
 
 ```text
 YOLOportfolio/
-├── .project/                  # 项目控制面(状态/计划/决策,内部使用)
-├── docs/                      # 长期设计文档
 ├── data/raw/                  # 原始数据集(只读,git 不跟踪)
-├── experiments/               # 正式实验目录(EXP-xxx + 实验台账)
-├── outputs/                   # 临时程序输出(不长期保存)
 ├── yolo_optimization/         # 主代码
 │   ├── configs/               # 训练配置(baseline.yaml 等)
-│   ├── scripts/               # 环境检查/数据分析/训练/评估/错误分析/推理
+│   ├── scripts/               # 环境检查/数据下载/分析/训练/评估/错误分析/推理
 │   ├── results/               # 结果产物(baseline/错误案例/对比)
 │   ├── reports/               # 交付报告
 │   └── tests/
-└── requirements.txt           # 锁定依赖(Python 3.11)
+├── docs/                      # 长期设计文档
+├── requirements.txt           # 锁定依赖(Python 3.11)
+├── environment.yml            # conda 环境复现
+└── LICENSE
 ```
 
 ## Reproducibility

@@ -22,3 +22,8 @@ yolo_optimization/results/
 
 # 临时
 .tmp/
+# 内部控制面(本地使用,不公开)
+.project/
+AGENTS.md
+experiments/
+Codex Prompt *
