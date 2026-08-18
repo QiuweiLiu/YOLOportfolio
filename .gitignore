@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.python-version
+
+# 环境与缓存
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# 数据与产物(大文件不提交;正式结果按需选择追踪)
+data/
+outputs/
+.scratch/
+yolo_optimization/results/
+*.pt
+*.onnx
+
+# 临时
+.tmp/
