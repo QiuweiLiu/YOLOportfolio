@@ -30,6 +30,7 @@ import logging
 import random
 import shutil
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -90,6 +91,20 @@ def select_subset(images: list[dict], anns_by_img: dict, n: int | None,
     return selected
 
 
+def copy_with_retry(src: Path, dst: Path, retries: int = 5, wait: float = 30.0) -> None:
+    """图片复制带重试(本地 FileProvider/云同步偶发换出时 read 会阻塞或 TimeoutError)。"""
+    for attempt in range(1, retries + 1):
+        try:
+            shutil.copy2(src, dst)
+            return
+        except OSError as e:
+            if attempt == retries:
+                raise
+            log.warning("copy failed (%s), retry %d/%d after %.0fs: %s",
+                        type(e).__name__, attempt, retries, wait, src.name)
+            time.sleep(wait)
+
+
 def write_yolo_txt(im: dict, anns: list, cat_id_to_name: dict, labels_dir: Path) -> list[str]:
     """单图标注 → YOLO 归一化 txt;返回该图出现的类别名。"""
     w, h = float(im["width"]), float(im["height"])
@@ -104,7 +119,8 @@ def write_yolo_txt(im: dict, anns: list, cat_id_to_name: dict, labels_dir: Path)
             continue
         lines.append(f"{ann['category_id']} {cx:.6f} {cy:.6f} {bw_n:.6f} {bh_n:.6f}")
         classes.append(cat_id_to_name[ann["category_id"]])
-    txt = labels_dir / (Path(im["file_name"]).stem + ".txt")
+    txt = labels_dir / Path(im["file_name"]).with_suffix(".txt")
+    txt.parent.mkdir(parents=True, exist_ok=True)
     txt.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
     return classes
 
@@ -159,7 +175,7 @@ def main() -> int:
                 continue
             dst = img_out / im["file_name"]
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            copy_with_retry(src, dst)
             copies += 1
             classes = write_yolo_txt(im, idx["anns_by_img"].get(im["id"], []),
                                      idx["cat_names"], lbl_out)
