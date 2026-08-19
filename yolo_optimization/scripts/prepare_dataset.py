@@ -60,6 +60,28 @@ def build_index(coco: dict) -> dict:
     return {"anns_by_img": dict(anns_by_img), "cat_names": cat_names}
 
 
+def filter_by_min_instances(coco: dict, idx: dict, min_n: int) -> tuple[list[dict], dict, dict, dict, int]:
+    """按每类实例数下限过滤类别;返回 (保留图, 过滤后 anns_by_img, old->new 类号重映射, 新类名->名, 丢弃图数)。"""
+    counts: Counter = Counter()
+    for anns in idx["anns_by_img"].values():
+        counts.update(a["category_id"] for a in anns)
+    keep = sorted(cid for cid, n in counts.items() if n >= min_n)
+    remap = {cid: new for new, cid in enumerate(keep)}
+    new_names = {remap[cid]: idx["cat_names"][cid] for cid in keep}
+    anns_by_img_new: dict[int, list] = {}
+    kept_imgs, dropped = [], 0
+    for im in coco["images"]:
+        anns = [a for a in idx["anns_by_img"].get(im["id"], []) if a["category_id"] in remap]
+        if anns:
+            kept_imgs.append(im)
+            anns_by_img_new[im["id"]] = anns
+        else:
+            dropped += 1
+    log.info("min_instances=%d: keep %d classes, %d images (drop %d unlabeled)",
+             min_n, len(remap), len(kept_imgs), dropped)
+    return kept_imgs, anns_by_img_new, remap, new_names, dropped
+
+
 def instance_signature(anns: list[dict]) -> str:
     """图片的类别分布指纹,用于分层抽样(保证少数类图片入选)。"""
     counts = Counter(ann["category_id"] for ann in anns)
@@ -105,8 +127,9 @@ def copy_with_retry(src: Path, dst: Path, retries: int = 5, wait: float = 30.0) 
             time.sleep(wait)
 
 
-def write_yolo_txt(im: dict, anns: list, cat_id_to_name: dict, labels_dir: Path) -> list[str]:
-    """单图标注 → YOLO 归一化 txt;返回该图出现的类别名。"""
+def write_yolo_txt(im: dict, anns: list, remap: dict, cat_id_to_name: dict,
+                   labels_dir: Path) -> list[str]:
+    """单图标注 → YOLO 归一化 txt(category_id 经 remap 重映射);返回该图出现的类别名。"""
     w, h = float(im["width"]), float(im["height"])
     lines: list[str] = []
     classes: list[str] = []
@@ -117,8 +140,8 @@ def write_yolo_txt(im: dict, anns: list, cat_id_to_name: dict, labels_dir: Path)
         cx, cy, bw_n, bh_n = (x + bw / 2) / w, (y + bh / 2) / h, bw / w, bh / h
         if not all(0 < v <= 1 for v in (cx, cy, bw_n, bh_n)):  # 越界框丢弃
             continue
-        lines.append(f"{ann['category_id']} {cx:.6f} {cy:.6f} {bw_n:.6f} {bh_n:.6f}")
-        classes.append(cat_id_to_name[ann["category_id"]])
+        lines.append(f"{remap[ann['category_id']]} {cx:.6f} {cy:.6f} {bw_n:.6f} {bh_n:.6f}")
+        classes.append(cat_id_to_name[remap[ann["category_id"]]])
     txt = labels_dir / Path(im["file_name"]).with_suffix(".txt")
     txt.parent.mkdir(parents=True, exist_ok=True)
     txt.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
@@ -135,6 +158,8 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--splits", type=float, nargs=3, default=[0.8, 0.1, 0.1],
                     help="train/val/test 比例(和为 1)")
+    ap.add_argument("--min-instances", type=int, default=None,
+                    help="类别实例数下限(过滤低频类,缺省不过滤)")
     args = ap.parse_args()
 
     if any(not 0 <= s <= 1 for s in args.splits):
@@ -146,7 +171,15 @@ def main() -> int:
 
     coco = load_coco(args.annotations)
     idx = build_index(coco)
-    images = select_subset(coco["images"], idx["anns_by_img"], args.subset, args.seed)
+
+    remap = None
+    if args.min_instances:
+        coco_images, anns_by_img, remap, cat_names, dropped = \
+            filter_by_min_instances(coco, idx, args.min_instances)
+        idx = {"anns_by_img": anns_by_img, "cat_names": cat_names}
+        images = select_subset(coco_images, idx["anns_by_img"], args.subset, args.seed)
+    else:
+        images = select_subset(coco["images"], idx["anns_by_img"], args.subset, args.seed)
 
     rng = random.Random(args.seed)
     rng.shuffle(images)
@@ -178,6 +211,7 @@ def main() -> int:
             copy_with_retry(src, dst)
             copies += 1
             classes = write_yolo_txt(im, idx["anns_by_img"].get(im["id"], []),
+                                     remap if remap else {c: c for c in idx["cat_names"]},
                                      idx["cat_names"], lbl_out)
             class_counter.update(classes)
 
@@ -202,6 +236,7 @@ def main() -> int:
         "seed": args.seed,
         "subset_requested": args.subset,
         "subset_actual": len(images),
+        "min_instances": args.min_instances,
         "splits": {k: len(v) for k, v in split_map},
         "n_categories": len(cat_ids),
         "class_names": names,
