@@ -43,11 +43,15 @@ COCO_LARGE_AREA = 96 * 96    # > 9216 px²
 def collect(coco: dict) -> dict:
     """提取分析所需数据: 每图类别列表、bbox 面积、长宽比。"""
     cat_names = {c["id"]: c["name"] for c in coco["categories"]}
+    # 先构建 image_id -> annotations 映射,避免 O(n×m) 扫描
+    anns_by_image: dict[int, list] = {}
+    for a in coco["annotations"]:
+        anns_by_image.setdefault(a["image_id"], []).append(a)
     per_img: list[list[str]] = []
     areas: list[float] = []
     ratios: list[float] = []
     for im in coco["images"]:
-        anns = [a for a in coco["annotations"] if a["image_id"] == im["id"]]
+        anns = anns_by_image.get(im["id"], [])
         per_img.append([cat_names[a["category_id"]] for a in anns])
         for a in anns:
             if a.get("area", 0) <= 0 or "bbox" not in a:

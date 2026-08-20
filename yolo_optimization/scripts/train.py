@@ -62,6 +62,9 @@ def main() -> int:
     ap.add_argument("--lr0", type=float, default=0.01)
     ap.add_argument("--plots", action="store_true", default=False, help="生成训练曲线图")
     ap.add_argument("--cache", default=False, help="'disk' 或 True 缓存数据集(默认不缓存)")
+    ap.add_argument("--mosaic", type=float, default=1.0, help="mosaic 增强强度(0 关闭)")
+    ap.add_argument("--close-mosaic", type=int, default=10, help="最后 N epoch 关闭 mosaic")
+    ap.add_argument("--cls", type=float, default=0.5, help="分类 loss 权重")
     ap.add_argument("--resume", action="store_true", help="从 <project>/<name>/weights/last.pt 继续")
     ap.add_argument("--amp", type=int, default=1, help="AMP 开关(1 开,0 关;MPS 上如需可关)")
     args = ap.parse_args()
@@ -88,11 +91,14 @@ def main() -> int:
         fraction=args.fraction,
         workers=args.workers,
         lr0=args.lr0,
+        cls=args.cls,
         project=str(args.project),
         name=args.name,
         exist_ok=True,
         plots=args.plots,
         cache=args.cache,
+        mosaic=args.mosaic,
+        close_mosaic=args.close_mosaic,
         resume=args.resume,
         amp=bool(args.amp),
         val=True,
