@@ -9,6 +9,8 @@ A practical object detection optimization workflow with dataset audit, frozen ev
 ### Demo
 
 <div align="center">
+  <img src="assets/hero_demo2.jpg" width="80%" alt="Hero Demo - Balanced TP">
+  <p><em>Balanced case: Green TP / Red FP / Blue FN — 1 TP, 0 FP, 0 FN (val/000083.jpg, best.pt 640px)</em></p>
   <img src="assets/fp_example_00.jpg" width="45%" alt="FP Example">
   <img src="assets/fn_example_00.jpg" width="45%" alt="FN Example">
   <p><em>Red: False Positive | Blue: False Negative | Green: True Positive</em></p>
@@ -18,7 +20,9 @@ A practical object detection optimization workflow with dataset audit, frozen ev
 
 <video src="assets/video_demo.mp4" controls width="100%"></video>
 
-*5-second demo: 8-class litter detection on TACO validation images (YOLOv8n, 640px). Input: `outputs/demo_input.mp4` → Output: `outputs/demo/video_demo.mp4` via `inference.py`.*
+*5-second demo: 8-class litter detection on TACO validation images (YOLOv8n, 640px). Input: `outputs/demo_input.mp4` → Output: `assets/video_demo.mp4` via `inference.py`.*
+
+> **Where is the video?** In repo: [`assets/video_demo.mp4`](assets/video_demo.mp4) (GitHub renders it as player). Locally: `outputs/demo/demo_short_pred.mp4`.
 
 ### Case Study: TACO Litter Detection
 
