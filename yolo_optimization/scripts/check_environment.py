@@ -25,6 +25,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_DIRS = [
     "yolo_optimization/configs",
     "yolo_optimization/scripts",
+]
+
+OPTIONAL_DIRS = [
     "yolo_optimization/results",
     "yolo_optimization/reports",
     "yolo_optimization/tests",
@@ -91,20 +94,29 @@ def main() -> int:
 
     # --- 目录 ---
     print(f"\n[Directories]")
-    missing = []
+    missing_required = []
+    missing_optional = []
     for d in REQUIRED_DIRS:
         p = PROJECT_ROOT / d
         ok = p.is_dir()
         print(f"  {'OK ' if ok else 'MISS'} {d}")
         if not ok:
-            missing.append(d)
+            missing_required.append(d)
+    for d in OPTIONAL_DIRS:
+        p = PROJECT_ROOT / d
+        ok = p.is_dir()
+        print(f"  {'OK ' if ok else 'opt'} {d}  (optional)")
+        if not ok:
+            missing_optional.append(d)
 
     print()
-    if missing:
-        print(f"[WARN] 缺失目录: {missing}")
-    else:
-        print("[OK] 所有必要目录存在")
-    return 0 if not missing else 1
+    if missing_required:
+        print(f"[ERROR] 缺失必要目录: {missing_required}")
+        return 1
+    if missing_optional:
+        print(f"[INFO] 缺失可选目录(运行时会自动创建): {missing_optional}")
+    print("[OK] 环境检查通过")
+    return 0
 
 
 if __name__ == "__main__":

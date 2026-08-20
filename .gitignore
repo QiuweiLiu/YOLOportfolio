@@ -1,29 +1,28 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-.python-version
 
+# Python
+# 临时
+# 内部控制面(本地使用,不公开)
+# 数据与产物(大文件不提交;正式结果按需选择追踪)
 # 环境与缓存
+*.egg-info/
+*.log
+*.onnx
+*.pt
+*.py[cod]
 .DS_Store
 .idea/
-.vscode/
-*.log
-
-# 数据与产物(大文件不提交;正式结果按需选择追踪)
-data/
-outputs/
-.scratch/
-yolo_optimization/results/
-*.pt
-*.onnx
-
-# 临时
-.tmp/
-# 内部控制面(本地使用,不公开)
 .project/
+.python-version
+.scratch/
+.tmp/
+.venv/
+.vscode/
 AGENTS.md
-experiments/
 Codex Prompt *
+__pycache__/
+data/
+experiments/
+outputs/
+runs/
+venv/
+yolo_optimization/results/

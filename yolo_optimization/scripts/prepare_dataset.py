@@ -160,6 +160,10 @@ def main() -> int:
                     help="train/val/test 比例(和为 1)")
     ap.add_argument("--min-instances", type=int, default=None,
                     help="类别实例数下限(过滤低频类,缺省不过滤)")
+    ap.add_argument("--manifest", type=Path, default=None,
+                    help="frozen task manifest JSON(使用固定切分,忽略 --subset/--splits/--min-instances)")
+    ap.add_argument("--manifest-out", type=Path, default=None,
+                    help="保存切分 manifest 到 JSON(用于后续实验复现同一 split)")
     args = ap.parse_args()
 
     if any(not 0 <= s <= 1 for s in args.splits):
@@ -172,22 +176,58 @@ def main() -> int:
     coco = load_coco(args.annotations)
     idx = build_index(coco)
 
-    remap = None
-    if args.min_instances:
-        coco_images, anns_by_img, remap, cat_names, dropped = \
-            filter_by_min_instances(coco, idx, args.min_instances)
-        idx = {"anns_by_img": anns_by_img, "cat_names": cat_names}
-        images = select_subset(coco_images, idx["anns_by_img"], args.subset, args.seed)
+    # --- 读取 manifest 或生成新切分 ---
+    if args.manifest:
+        log.info("loading manifest: %s", args.manifest)
+        with open(args.manifest) as f:
+            man = json.load(f)
+        remap = {int(k): int(v) for k, v in man["class_mapping"].items()}
+        idx["cat_names"] = {int(k): v for k, v in man["class_names"].items()}
+        # 按 manifest 中的 ID 过滤图片
+        id_to_im = {im["id"]: im for im in coco["images"]}
+        split_map = []
+        for split_name in ("train", "val", "test"):
+            imgs = [id_to_im[iid] for iid in man["splits"][split_name] if iid in id_to_im]
+            # 过滤掉不在映射中的标注
+            anns = {im["id"]: [a for a in idx["anns_by_img"].get(im["id"], [])
+                              if a["category_id"] in remap] for im in imgs}
+            split_map.append((split_name, imgs))
+        log.info("manifest loaded: %d classes, splits %s",
+                 len(remap), {name: len(imgs) for name, imgs in split_map})
     else:
-        images = select_subset(coco["images"], idx["anns_by_img"], args.subset, args.seed)
+        remap = None
+        if args.min_instances:
+            coco_images, anns_by_img, remap, cat_names, dropped = \
+                filter_by_min_instances(coco, idx, args.min_instances)
+            idx = {"anns_by_img": anns_by_img, "cat_names": cat_names}
+            images = select_subset(coco_images, idx["anns_by_img"], args.subset, args.seed)
+        else:
+            images = select_subset(coco["images"], idx["anns_by_img"], args.subset, args.seed)
 
-    rng = random.Random(args.seed)
-    rng.shuffle(images)
-    n_tr = int(len(images) * args.splits[0])
-    n_va = int(len(images) * args.splits[1])
-    split_map = [("train", images[:n_tr]),
-                 ("val", images[n_tr:n_tr + n_va]),
-                 ("test", images[n_tr + n_va:])]
+        rng = random.Random(args.seed)
+        rng.shuffle(images)
+        n_tr = int(len(images) * args.splits[0])
+        n_va = int(len(images) * args.splits[1])
+        split_map = [("train", images[:n_tr]),
+                     ("val", images[n_tr:n_tr + n_va]),
+                     ("test", images[n_tr + n_va:])]
+
+        # 保存 manifest 如果指定
+        if args.manifest_out:
+            man = {
+                "task": args.name,
+                "seed": args.seed,
+                "min_instances": args.min_instances,
+                "n_classes": len(idx["cat_names"]),
+                "class_mapping": {str(k): str(v) for k, v in (remap or {c: c for c in idx["cat_names"]}).items()},
+                "class_names": {str(k): v for k, v in idx["cat_names"].items()},
+                "splits": {name: [im["id"] for im in imgs] for name, imgs in split_map},
+                "n_images_per_split": {name: len(imgs) for name, imgs in split_map},
+            }
+            args.manifest_out.parent.mkdir(parents=True, exist_ok=True)
+            with open(args.manifest_out, "w") as f:
+                json.dump(man, f, indent=2, ensure_ascii=False)
+            log.info("manifest saved -> %s", args.manifest_out)
 
     out_root = args.output_dir / args.name
     (out_root / "images").mkdir(parents=True, exist_ok=True)
@@ -223,8 +263,13 @@ def main() -> int:
 
     cat_ids = sorted(idx["cat_names"])
     names = {i: idx["cat_names"][cid] for i, cid in enumerate(cat_ids)}
+    # 使用 repo-relative path 而非绝对路径
+    try:
+        rel_path = out_root.relative_to(Path.cwd())
+    except ValueError:
+        rel_path = out_root.resolve()
     (out_root / "dataset.yaml").write_text(yaml.safe_dump({
-        "path": str(out_root.resolve()),
+        "path": str(rel_path),
         "train": "images/train",
         "val": "images/val",
         "test": "images/test",

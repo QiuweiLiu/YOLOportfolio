@@ -115,13 +115,19 @@ def main() -> int:
             for key in ("epoch", "metrics/precision(B)", "metrics/recall(B)",
                         "metrics/mAP50(B)", "metrics/mAP50-95(B)"):
                 if key in last:
-                    metrics[key] = last[key]
+                    metrics[f"last_{key}"] = last[key]
         else:
             log.warning("results.csv empty — metrics not extracted")
     else:
         log.warning("results.csv missing — metrics not extracted")
 
-    metrics["best_weights"] = str((run_dir / "weights" / "best.pt").resolve())
+    # 使用 repo-relative 路径
+    cwd = Path.cwd()
+    try:
+        rel_weights = run_dir.relative_to(cwd) / "weights" / "best.pt"
+    except ValueError:
+        rel_weights = run_dir / "weights" / "best.pt"
+    metrics["best_weights"] = str(rel_weights)
     write_metrics(run_dir, metrics)
     return 0
 
