@@ -14,6 +14,12 @@ A practical object detection optimization workflow with dataset audit, frozen ev
   <p><em>Red: False Positive | Blue: False Negative | Green: True Positive</em></p>
 </div>
 
+### Video Demo
+
+<video src="assets/video_demo.mp4" controls width="100%"></video>
+
+*5-second demo: 8-class litter detection on TACO validation images (YOLOv8n, 640px). Input: `outputs/demo_input.mp4` → Output: `outputs/demo/video_demo.mp4` via `inference.py`.*
+
 ### Case Study: TACO Litter Detection
 
 The [TACO dataset](http://tacodataset.org/) (Trash Annotations in Context) contains 1,500 images of litter in natural environments with 60 fine-grained categories and 4,784 annotations.
@@ -54,6 +60,7 @@ The evaluation split is fixed via a [data manifest](yolo_optimization/data_manif
 ### Error Analysis
 
 Threshold-based matching (IoU ≥ 0.5, conf ≥ 0.001) on frozen val set — distinct from Ultralytics AP validation metrics.
+Diagnostic TP/FP/FN statistics are used for failure analysis and may differ from COCO-style AP evaluation.
 
 **Object Size Distribution** (204 val instances):
 
@@ -68,7 +75,27 @@ Threshold-based matching (IoU ≥ 0.5, conf ≥ 0.001) on frozen val set — dis
 - **Clear plastic bottle** performs best: 13 instances, 12 TP / 1 FN (recall 0.92, precision 0.04 at low threshold).
 - 75.5% of all objects are tiny — small object detection is the primary bottleneck.
 
+### Optimization Results (same task, same split)
+
+| Model | mAP50 | mAP50-95 | Precision | Recall |
+|---|---|---|---|---|
+| Baseline (416px) | 0.238 | 0.181 | 0.400 | 0.266 |
+| **Best (640px)** | **0.315** | **0.233** | 0.306 | 0.346 |
+
+*Best model: `exp_a_imgsz640` (hypothesis: higher resolution helps tiny objects). All metrics from `evaluate.py` on frozen val.*
+
 ### Deliverables
+
+For a client project you receive:
+
+- trained YOLO weights (`best.pt`)
+- reproducible training configuration (`baseline_v1.yaml`)
+- evaluation report (`evaluation.json`)
+- FP/FN failure analysis (`error_analysis.json` + 10 example images)
+- inference script (`inference.py` — single image / directory / video)
+- optimization recommendations (based on error analysis)
+
+### Scripts
 
 | Script | Purpose |
 |---|---|
