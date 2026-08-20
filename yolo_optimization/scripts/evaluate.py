@@ -48,13 +48,16 @@ def main() -> int:
     # 确定 data 来源: manifest JSON 或 dataset.yaml
     data_arg = str(args.data)
     if args.data.suffix == ".json":
-        # 从 manifest 生成 dataset.yaml
+        # 从 manifest 生成 dataset.yaml（Ultralytics 需要 train+val 都存在）
         man = json.loads(args.data.read_text())
         yaml_path = args.data.with_suffix(".yaml")
         import yaml
+        data_dir = man.get("data_processed", f"data/processed/{man['task']}")
+        repo_root = Path.cwd()
         yaml.dump({
-            "path": str(yaml_path.parent.resolve()),
-            args.split: f"data/processed/{man['task']}/images/{args.split}",
+            "path": str(repo_root.resolve()),
+            "train": f"{data_dir}/images/train",
+            "val": f"{data_dir}/images/{args.split}",
             "names": {int(k): v for k, v in man["class_names"].items()},
         }, yaml_path.open("w"), sort_keys=False, allow_unicode=True)
         data_arg = str(yaml_path)

@@ -183,14 +183,18 @@ def main() -> int:
             man = json.load(f)
         remap = {int(k): int(v) for k, v in man["class_mapping"].items()}
         idx["cat_names"] = {int(k): v for k, v in man["class_names"].items()}
-        # 按 manifest 中的 ID 过滤图片
+        # 过滤标注:只保留在 remap 中的类
+        filtered_anns = {}
+        for img_id, anns in idx["anns_by_img"].items():
+            filtered = [a for a in anns if a["category_id"] in remap]
+            if filtered:
+                filtered_anns[img_id] = filtered
+        idx["anns_by_img"] = filtered_anns
+        # 按 manifest 中的 ID 取图片
         id_to_im = {im["id"]: im for im in coco["images"]}
         split_map = []
         for split_name in ("train", "val", "test"):
             imgs = [id_to_im[iid] for iid in man["splits"][split_name] if iid in id_to_im]
-            # 过滤掉不在映射中的标注
-            anns = {im["id"]: [a for a in idx["anns_by_img"].get(im["id"], [])
-                              if a["category_id"] in remap] for im in imgs}
             split_map.append((split_name, imgs))
         log.info("manifest loaded: %d classes, splits %s",
                  len(remap), {name: len(imgs) for name, imgs in split_map})

@@ -1,0 +1,12 @@
+path: /Users/liuqiuwei/Documents/YOLOportfolio
+train: data/processed/taco_g200/images/train
+val: data/processed/taco_g200/images/val
+names:
+  0: Clear plastic bottle
+  1: Plastic bottle cap
+  2: Drink can
+  3: Other plastic
+  4: Plastic film
+  5: Other plastic wrapper
+  6: Unlabeled litter
+  7: Cigarette

@@ -844,5 +844,7 @@
     "train": 2326,
     "val": 104,
     "test": 105
-  }
+  },
+  "data_dir": "taco_g200",
+  "data_processed": "data/processed/taco_g200"
 }
