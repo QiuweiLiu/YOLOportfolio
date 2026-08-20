@@ -33,9 +33,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("analyze_errors")
 
 COLORS = {
-    "TP": (0, 255, 0),    # green
-    "FP": (255, 0, 0),    # red
-    "FN": (0, 0, 255),    # blue
+    "TP": (0, 255, 0),    # green (BGR)
+    "FP": (0, 0, 255),    # red (BGR) - OpenCV uses BGR
+    "FN": (255, 0, 0),    # blue (BGR)
 }
 
 
@@ -53,41 +53,44 @@ def compute_iou(box1, box2):
 
 
 def match_predictions(gt_boxes, gt_classes, pred_boxes, pred_classes, pred_scores, iou_thresh=0.5):
-    """Greedy matching between GT and predictions.
+    """Greedy class-aware matching between GT and predictions.
+
+    Rules:
+      - Only same class + IoU >= thresh + GT not yet matched => TP
+      - Otherwise prediction => FP (includes wrong-class high IoU)
+      - Unmatched GT => FN
+      - Duplicate predictions on same GT: first (highest conf) TP, rest FP
 
     Returns:
-        tp_list: list of (pred_idx, gt_idx, iou)
-        fp_list: list of unmatched pred indices
+        tp_list: list of (original_pred_idx, gt_idx, iou)
+        fp_list: list of original unmatched pred indices
         fn_list: list of unmatched gt indices
     """
     matched_gt = set()
-    tp_list, fp_list, fn_list = [], [], []
+    tp_list, fp_list = [], []
 
-    # Sort predictions by confidence descending for greedy matching
-    order = np.argsort(-np.array(pred_scores))
-    pred_boxes = [pred_boxes[i] for i in order]
-    pred_classes = [pred_classes[i] for i in order]
-    pred_scores = [pred_scores[i] for i in order]
+    # Sort by confidence but keep original indices
+    order = np.argsort(-np.asarray(pred_scores)) if pred_scores else np.array([], dtype=int)
 
-    for p_idx, (p_box, p_cls, p_sc) in enumerate(zip(pred_boxes, pred_classes, pred_scores)):
+    for original_idx in order:
+        p_box = pred_boxes[original_idx]
+        p_cls = pred_classes[original_idx]
         best_iou, best_gt = 0.0, -1
         for g_idx, (g_box, g_cls) in enumerate(zip(gt_boxes, gt_classes)):
             if g_idx in matched_gt:
                 continue
+            if g_cls != p_cls:
+                continue  # class-aware: only same class can be TP
             iou = compute_iou(p_box, g_box)
             if iou > best_iou:
                 best_iou = iou
                 best_gt = g_idx
 
-        if best_iou >= iou_thresh:
+        if best_iou >= iou_thresh and best_gt >= 0:
             matched_gt.add(best_gt)
-            is_correct = (p_cls == gt_classes[best_gt])
-            if is_correct:
-                tp_list.append((p_idx, best_gt, best_iou))
-            else:
-                fp_list.append(p_idx)  # wrong class = FP
+            tp_list.append((int(original_idx), best_gt, best_iou))
         else:
-            fp_list.append(p_idx)  # low IoU = FP
+            fp_list.append(int(original_idx))
 
     fn_list = [g_idx for g_idx in range(len(gt_boxes)) if g_idx not in matched_gt]
     return tp_list, fp_list, fn_list
@@ -164,11 +167,12 @@ def main() -> int:
     model = YOLO(str(args.weights))
     class_names = model.names
 
-    # 加载数据集 — 从 manifest 获取图片路径
+    # 加载数据集 — 从 manifest 获取图片路径 (优先 data_name)
     if args.data.suffix == ".json":
         man = json.loads(args.data.read_text())
         task_name = man["task"]
-        data_dir = man.get("data_processed", f"data/processed/{task_name}")
+        data_name = man.get("data_name", man.get("task", "task_v1"))
+        data_dir = man.get("data_processed", f"data/processed/{data_name}")
         image_dir = Path(f"{data_dir}/images/{args.split}")
         image_paths = sorted(image_dir.rglob("*.[jJ][pP][gG]")) + sorted(image_dir.rglob("*.[pP][nN][gG]"))
         log.info("loaded %d images from %s", len(image_paths), image_dir)
@@ -299,9 +303,14 @@ def main() -> int:
     n_fp = sum(v["fp"] for v in per_class.values())
     n_fn = sum(v["fn"] for v in per_class.values())
 
+    def _rel(p: Path) -> str:
+        try:
+            return str(p.relative_to(Path.cwd()))
+        except ValueError:
+            return str(p)
     report = {
-        "model": str(args.weights),
-        "dataset": str(args.data),
+        "model": _rel(Path(args.weights)),
+        "dataset": _rel(Path(args.data)),
         "split": args.split,
         "imgsz": args.imgsz,
         "conf_threshold": args.conf,

@@ -218,8 +218,11 @@ def main() -> int:
 
         # 保存 manifest 如果指定
         if args.manifest_out:
+            subset_actual = sum(len(imgs) for _, imgs in split_map)
             man = {
                 "task": args.name,
+                "data_name": args.name,
+                "data_processed": str(out_root),
                 "seed": args.seed,
                 "min_instances": args.min_instances,
                 "n_classes": len(idx["cat_names"]),
@@ -227,6 +230,7 @@ def main() -> int:
                 "class_names": {str(k): v for k, v in idx["cat_names"].items()},
                 "splits": {name: [im["id"] for im in imgs] for name, imgs in split_map},
                 "n_images_per_split": {name: len(imgs) for name, imgs in split_map},
+                "subset_actual": subset_actual,
             }
             args.manifest_out.parent.mkdir(parents=True, exist_ok=True)
             with open(args.manifest_out, "w") as f:
@@ -280,12 +284,14 @@ def main() -> int:
         "names": names,
     }, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
+    subset_actual = sum(len(imgs) for _, imgs in split_map)
     meta = {
         "name": args.name,
         "seed": args.seed,
         "subset_requested": args.subset,
-        "subset_actual": len(images),
+        "subset_actual": subset_actual,
         "min_instances": args.min_instances,
+        "manifest": str(args.manifest) if args.manifest else None,
         "splits": {k: len(v) for k, v in split_map},
         "n_categories": len(cat_ids),
         "class_names": names,

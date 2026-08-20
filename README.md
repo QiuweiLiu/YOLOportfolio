@@ -1,10 +1,6 @@
 # YOLO Model Optimization Portfolio
 
-[English](#english) | [简体中文](#简体中文)
-
----
-
-## English
+[English](README.md) | [简体中文](README.zh-CN.md)
 
 A practical object detection optimization workflow with dataset audit, frozen evaluation splits, FP/FN diagnosis, hypothesis-driven controlled experiments, and reproducible before/after evaluation.
 
@@ -28,13 +24,13 @@ The [TACO dataset](http://tacodataset.org/) (Trash Annotations in Context) conta
 
 The first step was auditing the dataset to determine the appropriate task scope:
 
-| Experiment | Classes | Criteria | mAP50 | Notes |
+| Scope | Classes | Criteria | mAP50 | Interpretation |
 |---|---|---|---|---|
-| EXP-001 | 60 (full) | All classes | 0.086 | Extreme class imbalance |
-| EXP-002 | 23 | ≥50 instances | 0.140 | +63% vs full |
-| EXP-003 | **8** | **≥200 instances** | **0.244** | **Focused task** |
+| Full taxonomy | 60 | All classes | 0.086 | Severe long-tail / scope study |
+| Filtered scope | 23 | ≥50 instances | 0.140 | Scope study only |
+| Focused task | **8** | **≥200 instances** | **0.244** | Selected task definition |
 
-> **Important:** Metrics across different class scopes are NOT treated as direct model optimization comparisons. These experiments demonstrate the dataset audit process — identifying that the full 60-class taxonomy is not suitable for practical detection, and establishing a focused 8-class task as the final benchmark.
+> Metrics across different class scopes are NOT direct model optimization comparisons. This study shows why the full 60-class taxonomy is not suitable and how the focused 8-class task was chosen as the final benchmark.
 
 The final task (`task_v1`) focuses on the 8 most common litter classes:
 Clear plastic bottle, Plastic bottle cap, Drink can, Other plastic, Plastic film, Other plastic wrapper, Unlabeled litter, Cigarette
@@ -57,18 +53,20 @@ The evaluation split is fixed via a [data manifest](yolo_optimization/data_manif
 
 ### Error Analysis
 
-**Object Size Distribution** (205 val instances):
+Threshold-based matching (IoU ≥ 0.5, conf ≥ 0.001) on frozen val set — distinct from Ultralytics AP validation metrics.
+
+**Object Size Distribution** (204 val instances):
 
 | Size | Count | % |
 |---|---|---|
-| Tiny (<1% image area) | 155 | 75.6% |
+| Tiny (<1% image area) | 154 | 75.5% |
 | Small (1-5%) | 28 | 13.7% |
-| Large (>5%) | 22 | 10.7% |
+| Large (>5%) | 22 | 10.8% |
 
 **Key findings:**
-- **Cigarette** is the hardest class: 53 instances, only 5 detected (recall 0.11). Most are tiny (<1% of image area).
-- **Clear plastic bottle** performs best: 14 instances, 10 detected (recall 1.0, precision 0.03 at low threshold).
-- 75.6% of all objects are tiny — small object detection is the primary bottleneck.
+- **Cigarette** is the hardest class: 53 instances, 5 TP / 48 FN (recall 0.09, precision 0.00). Most are tiny.
+- **Clear plastic bottle** performs best: 13 instances, 12 TP / 1 FN (recall 0.92, precision 0.04 at low threshold).
+- 75.5% of all objects are tiny — small object detection is the primary bottleneck.
 
 ### Deliverables
 
@@ -155,35 +153,3 @@ Developed on **Apple Silicon (MPS)** — torch 2.13 / Ultralytics 8.4.121 / Pyth
 
 - Code: MIT (see [LICENSE](LICENSE))
 - TACO dataset: CC BY 4.0
-
----
-
-## 简体中文
-
-一套面向真实客户项目的 YOLO 模型优化工作流：数据审计 → 固化 baseline → FP/FN 诊断 → 假设驱动实验 → 固定评估集验证 → 最终交付。
-
-### 能力展示
-
-| 能力 | 说明 |
-|---|---|
-| 数据审计 | 分析类别分布/目标尺寸/任务范围 |
-| 固化评估集 | 所有实验使用完全相同的 train/val/test |
-| 错误分析 | 逐类 FP/FN + 目标尺寸分析 + 可视化案例 |
-| 受控实验 | 每次只改一个变量，固定评估集验证 |
-| 可复现 | 配置/seed/数据版本全部记录 |
-
-### 案例：TACO 垃圾检测
-
-从 60 类全量数据出发，通过审计发现 38 类样本不足 50 个，最终聚焦到 8 个高频类（mAP50 从 0.086 提升至 0.244）。[了解更多](yolo_optimization/data_manifests/task_v1.json)
-
-### 快速开始
-
-```bash
-git clone https://github.com/QiuweiLiu/YOLOportfolio.git
-cd YOLOportfolio
-conda env create -f environment.yml
-conda activate yolo-portfolio
-python yolo_optimization/scripts/check_environment.py
-```
-
-详细步骤见英文版 [Quick Start](#quick-start)。

@@ -50,9 +50,14 @@ def main() -> int:
     if args.data.suffix == ".json":
         # 从 manifest 生成 dataset.yaml（Ultralytics 需要 train+val 都存在）
         man = json.loads(args.data.read_text())
-        yaml_path = args.data.with_suffix(".yaml")
+        # runtime yaml 不污染 data_manifests，放到 outputs/runtime
+        runtime_dir = Path("outputs/runtime")
+        runtime_dir.mkdir(parents=True, exist_ok=True)
+        yaml_path = runtime_dir / f"{args.data.stem}.yaml"
         import yaml
-        data_dir = man.get("data_processed", f"data/processed/{man['task']}")
+        # 优先使用 manifest 的 data_name / data_processed
+        data_name = man.get("data_name", man.get("task", "task_v1"))
+        data_dir = man.get("data_processed", f"data/processed/{data_name}")
         repo_root = Path.cwd()
         yaml.dump({
             "path": str(repo_root.resolve()),
@@ -91,10 +96,16 @@ def main() -> int:
     run_dir = results.save_dir
     log.info("val done -> %s", run_dir)
 
+    # 从 results 提取指标 — 使用 repo-relative 路径
+    def _rel(p: Path) -> str:
+        try:
+            return str(p.relative_to(Path.cwd()))
+        except ValueError:
+            return str(p)
     # 从 results 提取指标
     eval_data = {
-        "model": str(args.weights),
-        "dataset": str(args.data),
+        "model": _rel(Path(args.weights)),
+        "dataset": _rel(Path(args.data)),
         "split": args.split,
         "imgsz": args.imgsz,
         "batch": args.batch,
@@ -104,7 +115,7 @@ def main() -> int:
         "mAP50": float(results.box.map50),
         "mAP50-95": float(results.box.map),
         "per_class": {},
-        "confusion_matrix": str(run_dir / "confusion_matrix.png"),
+        "confusion_matrix": _rel(run_dir / "confusion_matrix.png"),
     }
 
     # per-class metrics
