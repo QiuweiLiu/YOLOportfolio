@@ -1,0 +1,63 @@
+{
+  "model": "yolo_optimization/results/experiments/exp_a_imgsz640/weights/best.pt",
+  "dataset": "yolo_optimization/data_manifests/task_v1.json",
+  "split": "val",
+  "imgsz": 640,
+  "batch": 16,
+  "device": "mps",
+  "precision": 0.305769967813428,
+  "recall": 0.3456907188319571,
+  "mAP50": 0.314560496024191,
+  "mAP50-95": 0.23315673048255978,
+  "per_class": {
+    "Clear plastic bottle": {
+      "precision": 0.398503942714309,
+      "recall": 0.7578114633278792,
+      "mAP50": 0.6959504357298476,
+      "mAP50-95": 0.6090970479302833
+    },
+    "Plastic bottle cap": {
+      "precision": 0.5582819522832821,
+      "recall": 0.4217786605311539,
+      "mAP50": 0.431328920292925,
+      "mAP50-95": 0.2715616448788557
+    },
+    "Drink can": {
+      "precision": 0.3007980129486162,
+      "recall": 0.6666666666666666,
+      "mAP50": 0.5558446996256783,
+      "mAP50-95": 0.4500422490048651
+    },
+    "Other plastic": {
+      "precision": 0.04984667969444133,
+      "recall": 0.04,
+      "mAP50": 0.02809534755288084,
+      "mAP50-95": 0.01430285719469512
+    },
+    "Plastic film": {
+      "precision": 0.23126977428999596,
+      "recall": 0.4,
+      "mAP50": 0.27950187916721125,
+      "mAP50-95": 0.21168010067288884
+    },
+    "Other plastic wrapper": {
+      "precision": 0.33791612339578175,
+      "recall": 0.3268741850936726,
+      "mAP50": 0.36488443401366727,
+      "mAP50-95": 0.24339355717198288
+    },
+    "Unlabeled litter": {
+      "precision": 0.2256437052546888,
+      "recall": 0.07692307692307693,
+      "mAP50": 0.05014577400831567,
+      "mAP50-95": 0.03061662041598797
+    },
+    "Cigarette": {
+      "precision": 0.34389955192630894,
+      "recall": 0.07547169811320754,
+      "mAP50": 0.11073247780300247,
+      "mAP50-95": 0.034559766590919465
+    }
+  },
+  "confusion_matrix": "assets/confusion_matrix.png"
+}

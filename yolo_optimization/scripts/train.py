@@ -47,6 +47,7 @@ def write_metrics(dir_: Path, metrics: dict) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--config", type=Path, default=None, help="YAML config 路径(显式 CLI 参数会覆盖 YAML 值)")
     ap.add_argument("--data", type=Path, default=Path("data/processed/taco/dataset.yaml"), help="dataset.yaml")
     ap.add_argument("--model", default="yolov8n.pt", help="权重/模型名(默认 yolov8n.pt,也可指定 .pt 路径)")
     ap.add_argument("--epochs", type=int, default=30)
@@ -69,19 +70,58 @@ def main() -> int:
     ap.add_argument("--amp", type=int, default=1, help="AMP 开关(1 开,0 关;MPS 上如需可关)")
     args = ap.parse_args()
 
-    if not args.data.exists():
-        log.error("dataset.yaml not found: %s", args.data)
+    # --config YAML 作为 base, CLI 显式参数覆盖
+    if args.config:
+        import yaml
+        if not args.config.exists():
+            log.error("config not found: %s", args.config)
+            return 1
+        cfg = yaml.safe_load(args.config.read_text()) or {}
+        # 仅当 CLI 未显式覆盖(值为默认值)时才用 YAML 值
+        defaults = {a.dest: a.default for a in ap._actions}
+        for k, v in cfg.items():
+            dest = k.replace("-", "_")
+            if dest in vars(args) and vars(args)[dest] == defaults.get(dest):
+                # 特殊处理 Path 类型
+                if dest in ("data", "project", "config"):
+                    vars(args)[dest] = Path(v) if v is not None else v
+                else:
+                    vars(args)[dest] = v
+
+    # 处理 manifest JSON → 生成 runtime dataset YAML (与 evaluate.py 一致)
+    data_arg = args.data
+    if data_arg.suffix == ".json":
+        man = json.loads(data_arg.read_text())
+        runtime_dir = Path("outputs/runtime")
+        runtime_dir.mkdir(parents=True, exist_ok=True)
+        yaml_path = runtime_dir / f"{data_arg.stem}.yaml"
+        import yaml
+        data_name = man.get("data_name", man.get("task", "task_v1"))
+        data_dir = man.get("data_processed", f"data/processed/{data_name}")
+        repo_root = Path.cwd()
+        yaml.dump({
+            "path": str(repo_root.resolve()),
+            "train": f"{data_dir}/images/train",
+            "val": f"{data_dir}/images/val",
+            "test": f"{data_dir}/images/test",
+            "names": {int(k): v for k, v in man["class_names"].items()},
+        }, yaml_path.open("w"), sort_keys=False, allow_unicode=True)
+        data_arg = yaml_path
+        log.info("generated dataset.yaml from manifest: %s", yaml_path)
+
+    if not data_arg.exists():
+        log.error("dataset.yaml not found: %s", data_arg)
         return 1
 
     device = pick_device(args.device)
     if device == "mps" and args.amp != 1:
         log.info("MPS 训练关闭 AMP(规避精度/SVD 算子)")
     log.info("device=%s | model=%s | data=%s | epochs=%d | imgsz=%d | batch=%d | seed=%d",
-             device, args.model, args.data, args.epochs, args.imgsz, args.batch, args.seed)
+             device, args.model, data_arg, args.epochs, args.imgsz, args.batch, args.seed)
 
     model = YOLO(args.model)
     results = model.train(
-        data=str(args.data),
+        data=str(data_arg),
         epochs=args.epochs,
         imgsz=args.imgsz,
         batch=args.batch,

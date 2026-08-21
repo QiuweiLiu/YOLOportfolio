@@ -24,9 +24,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--runs", nargs="+", required=True,
                     help="name=path 对, 如 baseline=path/eval.json exp_a=path/eval.json")
+    ap.add_argument("--baseline", type=str, default=None,
+                    help="baseline 实验名(用于计算提升, 如 baseline)")
     ap.add_argument("--output", type=Path, default=Path("yolo_optimization/results/comparison/comparison.json"),
                     help="输出路径")
     args = ap.parse_args()
+    if args.baseline and args.baseline not in [r.split("=", 1)[0] for r in args.runs]:
+        log.error("baseline '%s' not found in --runs", args.baseline)
+        return 1
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -82,9 +87,22 @@ def main() -> int:
         "best_mAP50": valid[0]["mAP50"] if valid else None,
     }
 
-    # 差值
-    if len(valid) >= 2:
-        baseline = valid[-1]  # worst = assumed baseline
+    # 差值 — 必须显式 baseline
+    if args.baseline:
+        baseline_entry = next((s for s in summary if s["experiment"] == args.baseline), None)
+        best_entry = valid[0] if valid else None
+        if baseline_entry and best_entry:
+            output["improvement"] = {
+                "baseline": baseline_entry["experiment"],
+                "best": best_entry["experiment"],
+                "mAP50_delta": round(best_entry["mAP50"] - baseline_entry["mAP50"], 4) if best_entry["mAP50"] and baseline_entry["mAP50"] else None,
+                "mAP50_change_pct": round((best_entry["mAP50"] - baseline_entry["mAP50"]) / baseline_entry["mAP50"] * 100, 1)
+                if best_entry["mAP50"] and baseline_entry["mAP50"] and baseline_entry["mAP50"] > 0 else None,
+            }
+    elif len(valid) >= 2:
+        # 向后兼容: 未指定 baseline 时仍计算但警告
+        log.warning("no --baseline specified, improvement relative to worst run")
+        baseline = valid[-1]
         best = valid[0]
         output["improvement"] = {
             "baseline": baseline["experiment"],

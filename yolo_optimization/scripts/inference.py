@@ -38,18 +38,17 @@ def process_image(model, img_path: Path, output: Path, conf: float, iou: float,
     results = model.predict(str(img_path), conf=conf, iou=iou, save=False, save_txt=False)
     detections = []
     for r in results:
-        if r.boxes is None:
-            continue
-        for box in r.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].tolist()
-            detections.append({
-                "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
-                "confidence": round(float(box.conf[0].item()), 4),
-                "class_id": int(box.cls[0].item()),
-                "class_name": class_names.get(int(box.cls[0].item()), "?") if class_names else "?",
-            })
-        if save_img and results[0].plot() is not None:
-            plot = results[0].plot()
+        if r.boxes is not None:
+            for box in r.boxes:
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                detections.append({
+                    "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
+                    "confidence": round(float(box.conf[0].item()), 4),
+                    "class_id": int(box.cls[0].item()),
+                    "class_name": class_names.get(int(box.cls[0].item()), "?") if class_names else "?",
+                })
+        if save_img:
+            plot = r.plot()
             out_path = output / f"{img_path.stem}_pred.jpg"
             cv2.imwrite(str(out_path), plot)
             log.info("saved: %s", out_path)
@@ -59,13 +58,20 @@ def process_image(model, img_path: Path, output: Path, conf: float, iou: float,
 def process_video(model, video_path: Path, output: Path, conf: float, iou: float,
                   class_names: dict | None, max_frames: int = 0) -> list[dict]:
     cap = cv2.VideoCapture(str(video_path))
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     out_video = None
     all_detections = []
     frame_idx = 0
+
+    # Create writer upfront (not dependent on detections)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out_path = output / f"{video_path.stem}_pred.mp4"
+    out_video = cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
+    if not out_video.isOpened():
+        log.warning("failed to open video writer: %s", out_path)
+        out_video = None
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -75,10 +81,17 @@ def process_video(model, video_path: Path, output: Path, conf: float, iou: float
             break
 
         results = model.predict(frame, conf=conf, iou=iou, save=False, save_txt=False)
+        r = results[0]
+        # Single plot call per frame
+        plot_img = r.plot()
+        if out_video is not None:
+            # Ensure plot size matches writer (Ultralytics may change size with imgsz)
+            if plot_img.shape[1] != w or plot_img.shape[0] != h:
+                plot_img = cv2.resize(plot_img, (w, h))
+            out_video.write(plot_img)
+
         frame_dets = []
-        for r in results:
-            if r.boxes is None:
-                continue
+        if r.boxes is not None:
             for box in r.boxes:
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 frame_dets.append({
@@ -87,21 +100,14 @@ def process_video(model, video_path: Path, output: Path, conf: float, iou: float
                     "class_id": int(box.cls[0].item()),
                     "class_name": class_names.get(int(box.cls[0].item()), "?") if class_names else "?",
                 })
-            if results[0].plot() is not None and out_video is None:
-                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-                out_video = cv2.VideoWriter(str(output / f"{video_path.stem}_pred.mp4"),
-                                            fourcc, fps, (w, h))
-
-        if out_video and results[0].plot() is not None:
-            out_video.write(results[0].plot())
-
         if frame_dets:
             all_detections.append({"frame": frame_idx, "detections": frame_dets})
         frame_idx += 1
 
     cap.release()
-    if out_video:
+    if out_video is not None:
         out_video.release()
+        log.info("video saved: %s", out_path)
     log.info("video done: %d frames, %d with detections", frame_idx, len(all_detections))
     return all_detections
 
@@ -113,7 +119,9 @@ def main() -> int:
     ap.add_argument("--output", type=Path, default=Path("outputs/demo"), help="输出目录")
     ap.add_argument("--conf", type=float, default=0.25, help="置信度阈值")
     ap.add_argument("--iou", type=float, default=0.5, help="NMS IoU 阈值")
-    ap.add_argument("--save-img", action="store_true", default=True, help="保存标注图片")
+    ap.add_argument("--save-img", dest="save_img", action="store_true", help="保存标注图片")
+    ap.add_argument("--no-save-img", dest="save_img", action="store_false", help="不保存标注图片")
+    ap.set_defaults(save_img=True)
     ap.add_argument("--max-frames", type=int, default=0, help="视频最大帧数(0=全部)")
     args = ap.parse_args()
 

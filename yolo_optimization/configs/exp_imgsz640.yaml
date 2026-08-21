@@ -1,0 +1,16 @@
+# Exp: higher input resolution for small objects (640 vs 416)
+# Differs from baseline_v1.yaml only in imgsz
+model: yolov8n.pt
+data: yolo_optimization/data_manifests/task_v1.json
+epochs: 30
+imgsz: 640
+batch: 8
+seed: 42
+patience: 30
+lr0: 0.01
+fraction: 1.0
+workers: 2
+amp: true
+cache: true
+optimizer: auto
+device: ""

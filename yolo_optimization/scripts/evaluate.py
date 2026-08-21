@@ -62,7 +62,8 @@ def main() -> int:
         yaml.dump({
             "path": str(repo_root.resolve()),
             "train": f"{data_dir}/images/train",
-            "val": f"{data_dir}/images/{args.split}",
+            "val": f"{data_dir}/images/val",
+            "test": f"{data_dir}/images/test",
             "names": {int(k): v for k, v in man["class_names"].items()},
         }, yaml_path.open("w"), sort_keys=False, allow_unicode=True)
         data_arg = str(yaml_path)

@@ -175,6 +175,7 @@ def main() -> int:
 
     coco = load_coco(args.annotations)
     idx = build_index(coco)
+    out_root = args.output_dir / args.name
 
     # --- 读取 manifest 或生成新切分 ---
     if args.manifest:
@@ -219,10 +220,14 @@ def main() -> int:
         # 保存 manifest 如果指定
         if args.manifest_out:
             subset_actual = sum(len(imgs) for _, imgs in split_map)
+            try:
+                rel_processed = str(out_root.relative_to(Path.cwd()))
+            except ValueError:
+                rel_processed = str(out_root.resolve())
             man = {
                 "task": args.name,
                 "data_name": args.name,
-                "data_processed": str(out_root),
+                "data_processed": rel_processed,
                 "seed": args.seed,
                 "min_instances": args.min_instances,
                 "n_classes": len(idx["cat_names"]),
@@ -237,7 +242,6 @@ def main() -> int:
                 json.dump(man, f, indent=2, ensure_ascii=False)
             log.info("manifest saved -> %s", args.manifest_out)
 
-    out_root = args.output_dir / args.name
     (out_root / "images").mkdir(parents=True, exist_ok=True)
     (out_root / "labels").mkdir(parents=True, exist_ok=True)
 

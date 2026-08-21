@@ -1,8 +1,12 @@
 # YOLO Model Optimization Portfolio
 
+[![tests](https://github.com/QiuweiLiu/YOLOportfolio/actions/workflows/tests.yml/badge.svg)](https://github.com/QiuweiLiu/YOLOportfolio/actions/workflows/tests.yml)
+
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 A practical object detection optimization workflow with dataset audit, frozen evaluation splits, FP/FN diagnosis, hypothesis-driven controlled experiments, and reproducible before/after evaluation.
+
+> **Result (frozen 8-class val, same split): mAP50 0.238 → 0.315 (+32%)** — baseline 416px vs best 640px, see [`assets/results/`](assets/results/) for auditable `evaluation.json`.
 
 **What this demonstrates:** Given an existing YOLO detection task, systematically identify problems through data analysis, establish a frozen baseline, diagnose False Positive / False Negative errors, design hypothesis-driven experiments, and validate improvements on a fixed evaluation set.
 
@@ -18,11 +22,11 @@ A practical object detection optimization workflow with dataset audit, frozen ev
 
 ### Video Demo
 
-<video src="assets/video_demo.mp4" controls width="100%"></video>
+[![Video Demo](assets/hero_demo2.jpg)](assets/video_demo.mp4)
 
-*5-second demo: 8-class litter detection on TACO validation images (YOLOv8n, 640px). Input: `outputs/demo_input.mp4` → Output: `assets/video_demo.mp4` via `inference.py`.*
+*5-second demo: 8-class litter detection on TACO validation images (YOLOv8n, 640px). Click image to play — [direct link to MP4](assets/video_demo.mp4) | Preview: `assets/hero_demo2.jpg`*
 
-> **Where is the video?** In repo: [`assets/video_demo.mp4`](assets/video_demo.mp4) (GitHub renders it as player). Locally: `outputs/demo/demo_short_pred.mp4`.
+*Generated via `python yolo_optimization/scripts/inference.py --weights yolo_optimization/results/experiments/exp_a_imgsz640/weights/best.pt --source outputs/demo_input.mp4 --output outputs/demo` — see `assets/video_demo.mp4` (4.4 MB).*
 
 ### Case Study: TACO Litter Detection
 
