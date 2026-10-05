@@ -10,6 +10,8 @@ A practical object detection optimization workflow with dataset audit, frozen ev
 
 **What this demonstrates:** Given an existing YOLO detection task, systematically identify problems through data analysis, establish a frozen baseline, diagnose False Positive / False Negative errors, design hypothesis-driven experiments, and validate improvements on a fixed evaluation set.
 
+**Interview-ready case study:** [30-second / 1-minute / 3-minute project walkthrough + technical Q&A](docs/INTERVIEW_GUIDE.md)
+
 ### Demo
 
 <div align="center">
@@ -160,7 +162,7 @@ python yolo_optimization/scripts/analyze_errors.py \
 
 # 8. Run inference on your own images
 python yolo_optimization/scripts/inference.py \
-  --weights yolo_optimization/results/experiments/exp/weights/best.pt \
+  --weights yolo_optimization/results/experiments/exp_a_imgsz640/weights/best.pt \
   --source path/to/your/image.jpg
 ```
 
@@ -175,6 +177,7 @@ YOLOportfolio/
 │   ├── results/          # Experiment outputs (gitignored)
 │   └── tests/            # Unit tests
 ├── assets/               # Selected results for README
+├── docs/                 # Interview guide and project notes
 ├── requirements.txt      # Locked dependencies (Python 3.11)
 ├── environment.yml       # Conda environment
 └── LICENSE               # MIT
